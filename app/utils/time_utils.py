@@ -10,31 +10,37 @@ from app.config import settings
 
 
 def now_local() -> datetime:
+    # 当前时间
     if ZoneInfo is None:
         return datetime.now()
     return datetime.now(ZoneInfo(settings.timezone))
 
 
 def parse_hhmm(value: str) -> time:
+    # 字符串解析
     hour, minute = value.split(":")
     return time(hour=int(hour), minute=int(minute))
 
 
 def merge_date_time(target_date: date, hhmm: str) -> datetime:
+    # 获取datetime
     if ZoneInfo is None:
         return datetime.combine(target_date, parse_hhmm(hhmm))
     return datetime.combine(target_date, parse_hhmm(hhmm), tzinfo=ZoneInfo(settings.timezone))
 
 
 def add_minutes(moment: datetime, minutes: int) -> datetime:
+    # 增加分钟数
     return moment + timedelta(minutes=minutes)
 
 
 def format_hhmm(moment: datetime) -> str:
+    # datetime格式化为HH:MM
     return moment.strftime("%H:%M")
 
 
 def next_work_slot_start(target_date: date, current: datetime) -> datetime:
+    # 计算下一个有效工作时间段的开始时间
     start = merge_date_time(target_date, settings.default_workday_start)
     lunch_start = merge_date_time(target_date, settings.lunch_start)
     lunch_end = merge_date_time(target_date, settings.lunch_end)
@@ -46,6 +52,7 @@ def next_work_slot_start(target_date: date, current: datetime) -> datetime:
 
 
 def fit_minutes_in_workday(start_at: datetime, minutes: int):
+    # 在工作日安排指定分钟数的任务
     lunch_start = merge_date_time(start_at.date(), settings.lunch_start)
     lunch_end = merge_date_time(start_at.date(), settings.lunch_end)
     work_end = merge_date_time(start_at.date(), settings.default_workday_end)

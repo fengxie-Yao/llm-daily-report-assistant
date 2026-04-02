@@ -7,6 +7,7 @@ from app.models import PlanItem, Task
 
 
 PRIORITY_LABELS = {
+    # 映射字典
     1: "1级（紧急且重要）",
     2: "2级（紧急但次要）",
     3: "3级（不紧急但重要）",
@@ -15,6 +16,7 @@ PRIORITY_LABELS = {
 
 
 def format_plan(items: List[PlanItem], current_time: str) -> str:
+    # 格式化每日任务执行计划
     lines = [f"今日任务执行规划（当前时间：{current_time}）"]
     for index, item in enumerate(items, start=1):
         carry = "【跨日累计】" if item.carry_over else ""
@@ -28,6 +30,7 @@ def format_plan(items: List[PlanItem], current_time: str) -> str:
 
 
 def format_daily_summary(target_date: date, tasks: List[Task]) -> str:
+    # 每日总结
     completed = [task for task in tasks if task.status == "completed"]
     pending = [task for task in tasks if task.status == "pending"]
     completion_rate = round((len(completed) / len(tasks) * 100), 1) if tasks else 0
@@ -49,6 +52,7 @@ def format_daily_summary(target_date: date, tasks: List[Task]) -> str:
 
 
 def format_weekly_summary(start_date: date, end_date: date, tasks: List[Task]) -> str:
+    # 每周总结
     completed = [task for task in tasks if task.status == "completed"]
     pending = [task for task in tasks if task.status == "pending"]
     lines = [f"本周工作总结（{start_date.isoformat()} 至 {end_date.isoformat()}）"]

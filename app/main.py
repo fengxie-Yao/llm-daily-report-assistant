@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 from typing import List
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.llm_handler import LLMHandler
@@ -16,6 +19,9 @@ from app.utils.time_utils import format_hhmm, now_local
 app = FastAPI(title=settings.app_name)
 rag_handler = RagHandler()
 llm_handler = LLMHandler(rag_handler)
+static_dir = Path(__file__).resolve().parent / "static"
+
+app.mount("/assets", StaticFiles(directory=static_dir), name="assets")
 
 
 def load_tasks() -> List[Task]:
@@ -27,13 +33,21 @@ def save_tasks(tasks: List[Task]) -> None:
     write_json(settings.tasks_file, [task.model_dump(mode="json") for task in tasks])
 
 
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    # 返回前端页面
+    return FileResponse(static_dir / "index.html")
+
+
 @app.get("/health", response_model=ApiResponse)
 def health() -> ApiResponse:
+    # 返回一个ApiResponse对象，包含时区和时间
     return ApiResponse(message="ok", data={"timezone": settings.timezone, "now": now_local().isoformat()})
 
 
 @app.post("/task/input", response_model=ApiResponse)
 def task_input(request: TaskInputRequest) -> ApiResponse:
+    # 接受用户的自然语言输入，并生成任务
     operation, drafts = llm_handler.parse_input(request.text)
     tasks = load_tasks()
 
@@ -68,6 +82,7 @@ def task_input(request: TaskInputRequest) -> ApiResponse:
 
 @app.post("/task/complete/supplement", response_model=ApiResponse)
 def task_complete_supplement(request: SupplementRequest) -> ApiResponse:
+    # 补录已完成的任务，修正任务的完成时间并更新RAG
     _, drafts = llm_handler.parse_input(request.text)
     if not drafts:
         raise HTTPException(status_code=400, detail="无法识别补录内容。")
@@ -96,6 +111,7 @@ def task_complete_supplement(request: SupplementRequest) -> ApiResponse:
 
 @app.post("/task/summary/daily", response_model=ApiResponse)
 def daily_summary(request: SummaryRequest) -> ApiResponse:
+    # 总结日报
     target_date = request.date or now_local().date()
     tasks = [task for task in load_tasks() if task.due_date == target_date]
     rag_handler.update_from_tasks([task for task in tasks if task.status == "completed"])
@@ -107,6 +123,7 @@ def daily_summary(request: SummaryRequest) -> ApiResponse:
 
 @app.post("/task/summary/weekly", response_model=ApiResponse)
 def weekly_summary(request: SummaryRequest) -> ApiResponse:
+    # 每周总结
     anchor = request.date or now_local().date()
     start_date = anchor - timedelta(days=anchor.weekday())
     end_date = start_date + timedelta(days=6)

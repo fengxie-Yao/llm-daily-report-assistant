@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM 日报助手</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">LLM Daily Report Assistant</p>
+      <h1>日报助手控制台</h1>
+      <p class="subtext">直接录入任务、补录完结、生成日报和周报，不用再只盯着接口文档页。</p>
+    </section>
+
+    <section class="panel grid">
+      <article class="card">
+        <h2>任务录入</h2>
+        <p class="hint">示例：今天的工作：1. 撰写项目方案（紧急，大规模）；2. 回复客户咨询（一般）；现在时间9:00</p>
+        <textarea id="taskInput" rows="7" placeholder="输入自然语言任务..."></textarea>
+        <button id="submitTask">生成规划</button>
+      </article>
+
+      <article class="card">
+        <h2>补录完结</h2>
+        <p class="hint">示例：补录：昨天的“回复客户咨询”任务已完结</p>
+        <textarea id="supplementInput" rows="5" placeholder="输入补录内容..."></textarea>
+        <button id="submitSupplement">提交补录</button>
+      </article>
+    </section>
+
+    <section class="panel actions">
+      <article class="card compact">
+        <h2>日报</h2>
+        <button id="dailySummary">生成今日日报</button>
+      </article>
+      <article class="card compact">
+        <h2>周报</h2>
+        <button id="weeklySummary">生成本周周报</button>
+      </article>
+      <article class="card compact">
+        <h2>健康检查</h2>
+        <button id="healthCheck">检查服务状态</button>
+      </article>
+    </section>
+
+    <section class="panel">
+      <article class="card">
+        <div class="result-head">
+          <h2>结果面板</h2>
+          <button id="clearResult" class="ghost">清空</button>
+        </div>
+        <div id="statusBar" class="status idle">等待操作</div>
+        <pre id="resultBox">这里会显示接口返回内容。</pre>
+      </article>
+    </section>
+  </main>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

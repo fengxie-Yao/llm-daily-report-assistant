@@ -16,6 +16,7 @@ class LLMHandler:
         self.rag_handler = rag_handler
 
     def parse_input(self, text: str) -> Tuple[str, List[ParsedTaskDraft]]:
+        # 解析输入
         cleaned = text.strip()
         if "补录" in cleaned:
             return "supplement", self._parse_supplement(cleaned)
@@ -26,6 +27,7 @@ class LLMHandler:
         return "add", self._parse_tasks(cleaned)
 
     def _parse_tasks(self, text: str) -> List[ParsedTaskDraft]:
+        # 添加任务解析
         body = re.sub(r"今天的工作[:：]?", "", text)
         body = re.sub(r"现在时间\d{1,2}:\d{2}", "", body)
         parts = [item.strip(" ;；。\n\t") for item in re.split(r"\d+\.\s*|；|;", body) if item.strip(" ;；。\n\t")]
@@ -48,11 +50,13 @@ class LLMHandler:
         return drafts
 
     def _parse_single_action(self, text: str, action: str) -> List[ParsedTaskDraft]:
+        # 单一操作解析
         match = re.search(r"[“\"']?(.*?)[”\"']?", text.replace("删除", "").replace("修改", "").replace("将", ""))
         title = match.group(1).replace("这个任务", "").strip() if match else text.strip()
         return [ParsedTaskDraft(title=title, operation=action, target_date=now_local().date())]
 
     def _parse_supplement(self, text: str) -> List[ParsedTaskDraft]:
+        # 任务补录
         target_date = now_local().date()
         if "昨天" in text:
             target_date -= timedelta(days=1)
@@ -67,6 +71,7 @@ class LLMHandler:
         return [ParsedTaskDraft(title=title, operation="supplement", target_date=target_date)]
 
     def _extract_priority(self, text: str) -> int:
+        # 优先级提取
         if "紧急" in text:
             return 1
         if "一般" in text or "普通" in text:
@@ -78,12 +83,14 @@ class LLMHandler:
         return 3
 
     def _estimate_minutes(self, title: str, priority: int, is_large: bool) -> int:
+        # 时间估计
         base = {1: 90, 2: 45, 3: 60, 4: 30}.get(priority, 60)
         if is_large:
             base = max(base, settings.large_task_threshold_minutes)
         return self.rag_handler.estimate_minutes(title, base)
 
     def drafts_to_tasks(self, drafts: List[ParsedTaskDraft], source_text: str) -> List[Task]:
+        # 任务解析成task
         created = now_local()
         tasks: List[Task] = []
         for draft in drafts:
@@ -104,6 +111,7 @@ class LLMHandler:
         return tasks
 
     def _split_large_task(self, task: Task) -> List[Task]:
+        # 大任务拆分
         chunk = max(60, task.estimated_minutes // 3)
         phases = ["框架搭建", "核心内容补充", "修改与校对"]
         subtasks: List[Task] = []

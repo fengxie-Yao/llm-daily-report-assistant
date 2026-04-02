@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 TaskStatus = Literal["pending", "completed", "cancelled"]
 TaskOperation = Literal["add", "modify", "delete", "supplement", "summary", "unknown"]
 
-
+# 任务实体
 class Task(BaseModel):
     id: str
     title: str
@@ -25,19 +25,19 @@ class Task(BaseModel):
     parent_task_id: Optional[str] = None
     notes: Optional[str] = None
 
-
+# 任务请求
 class TaskInputRequest(BaseModel):
     text: str
 
-
+# 补充信息
 class SupplementRequest(BaseModel):
     text: str
 
-
+# 每日小结
 class SummaryRequest(BaseModel):
     date: Optional[date] = None
 
-
+# 任务解析
 class ParsedTaskDraft(BaseModel):
     title: str
     priority: int = 3
@@ -46,7 +46,7 @@ class ParsedTaskDraft(BaseModel):
     operation: TaskOperation = "add"
     target_date: Optional[date] = None
 
-
+# 计划
 class PlanItem(BaseModel):
     title: str
     priority: int
@@ -56,7 +56,7 @@ class PlanItem(BaseModel):
     efficiency_tip: str
     carry_over: bool = False
 
-
+# 消息类型接口
 class ApiResponse(BaseModel):
     message: str
     data: Dict = Field(default_factory=dict)
