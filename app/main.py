@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import timedelta
 from pathlib import Path
 from typing import List
 
@@ -9,15 +8,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.llm_handler import LLMHandler
+from app.langgraph_handler import LLMHandler
 from app.models import ApiResponse, SummaryRequest, SupplementRequest, Task, TaskInputRequest
-from app.rag_handler import RagHandler
+from app.vector_rag_handler import VectorRagHandler
 from app.storage import read_json, write_json
-from app.utils.format_utils import format_daily_summary, format_plan, format_weekly_summary
 from app.utils.time_utils import format_hhmm, now_local
 
 app = FastAPI(title=settings.app_name)
-rag_handler = RagHandler()
+rag_handler = VectorRagHandler()
 llm_handler = LLMHandler(rag_handler)
 static_dir = Path(__file__).resolve().parent / "static"
 
@@ -35,19 +33,16 @@ def save_tasks(tasks: List[Task]) -> None:
 
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
-    # 返回前端页面
     return FileResponse(static_dir / "index.html")
 
 
 @app.get("/health", response_model=ApiResponse)
 def health() -> ApiResponse:
-    # 返回一个ApiResponse对象，包含时区和时间
     return ApiResponse(message="ok", data={"timezone": settings.timezone, "now": now_local().isoformat()})
 
 
 @app.post("/task/input", response_model=ApiResponse)
 def task_input(request: TaskInputRequest) -> ApiResponse:
-    # 接受用户的自然语言输入，并生成任务
     operation, drafts = llm_handler.parse_input(request.text)
     tasks = load_tasks()
 
@@ -69,12 +64,13 @@ def task_input(request: TaskInputRequest) -> ApiResponse:
     created_tasks = llm_handler.drafts_to_tasks(drafts, request.text)
     tasks.extend(created_tasks)
     save_tasks(tasks)
-    plan = llm_handler.build_plan(tasks)
+    plan, plan_meta = llm_handler.build_plan(tasks, operation=operation, new_tasks=created_tasks)
     return ApiResponse(
         message="任务已录入并完成规划。",
         data={
             "created_count": len(created_tasks),
-            "plan": format_plan(plan, format_hhmm(now_local())),
+            "plan": llm_handler.format_plan(plan, format_hhmm(now_local())),
+            "plan_meta": plan_meta,
             "tasks": [task.model_dump(mode="json") for task in created_tasks],
         },
     )
@@ -82,7 +78,6 @@ def task_input(request: TaskInputRequest) -> ApiResponse:
 
 @app.post("/task/complete/supplement", response_model=ApiResponse)
 def task_complete_supplement(request: SupplementRequest) -> ApiResponse:
-    # 补录已完成的任务，修正任务的完成时间并更新RAG
     _, drafts = llm_handler.parse_input(request.text)
     if not drafts:
         raise HTTPException(status_code=400, detail="无法识别补录内容。")
@@ -103,35 +98,24 @@ def task_complete_supplement(request: SupplementRequest) -> ApiResponse:
 
     save_tasks(tasks)
     rag_handler.remember_manual_completion(matched)
+    plan, plan_meta = llm_handler.build_plan(tasks, operation="supplement", new_tasks=[])
     return ApiResponse(
         message=f"补录成功：{matched.due_date.isoformat()} 的“{matched.title}”已设置为完结。",
-        data={"task": matched.model_dump(mode="json")},
+        data={
+            "task": matched.model_dump(mode="json"),
+            "plan": llm_handler.format_plan(plan, format_hhmm(now_local())),
+            "plan_meta": plan_meta,
+        },
     )
 
 
 @app.post("/task/summary/daily", response_model=ApiResponse)
 def daily_summary(request: SummaryRequest) -> ApiResponse:
-    # 总结日报
-    target_date = request.date or now_local().date()
-    tasks = [task for task in load_tasks() if task.due_date == target_date]
-    rag_handler.update_from_tasks([task for task in tasks if task.status == "completed"])
-    return ApiResponse(
-        message="已生成每日报告。",
-        data={"summary": format_daily_summary(target_date, tasks), "task_count": len(tasks)},
-    )
+    summary = llm_handler.generate_daily_summary(load_tasks(), request.date or now_local().date())
+    return ApiResponse(message="已生成每日报告。", data=summary)
 
 
 @app.post("/task/summary/weekly", response_model=ApiResponse)
 def weekly_summary(request: SummaryRequest) -> ApiResponse:
-    # 每周总结
-    anchor = request.date or now_local().date()
-    start_date = anchor - timedelta(days=anchor.weekday())
-    end_date = start_date + timedelta(days=6)
-    tasks = [task for task in load_tasks() if start_date <= task.due_date <= end_date]
-    return ApiResponse(
-        message="已生成每周总结。",
-        data={
-            "summary": format_weekly_summary(start_date, end_date, tasks),
-            "task_count": len(tasks),
-        },
-    )
+    summary = llm_handler.generate_weekly_summary(load_tasks(), request.date or now_local().date())
+    return ApiResponse(message="已生成每周总结。", data=summary)

@@ -10,7 +10,7 @@
 - 自动识别大规模任务并拆分子任务
 - 生成格式化的任务规划、日报、周报
 - 通过 JSON 持久化实现轻量级知识库
-- 预留 OpenAI / LangChain / Chroma 扩展入口
+- 使用 LangGraph 编排输入理解流程，并预留 OpenAI / Chroma 扩展入口
 
 ## 项目结构
 
